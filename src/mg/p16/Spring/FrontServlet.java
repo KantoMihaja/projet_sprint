@@ -1,26 +1,57 @@
-package mg.p16.spring;
+package mg.p16.Spring;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
 
-import jakarta.servlet.*;
-import jakarta.servlet.http.*;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-public class FrontServlet extends HttpServlet {
-    private boolean checked = false;
-    private final List<String> listeControllers = new ArrayList<>();
-    private final Set<String> verifiedClasses = new HashSet<>();
-
+public class FrontController extends HttpServlet {
+    private String packageName; // Variable pour stocker le nom du package
+    private static List<String> controllerNames = new ArrayList<>();
+    HashMap <String,Mapping> urlMaping = new HashMap<>() ;
+    
     @Override
     public void init(ServletConfig config) throws ServletException {
         super.init(config);
-        scanControllers(config);
+        packageName = config.getInitParameter("packageControllerName"); // Récupération du nom du package
+        scanControllers(packageName);
     }
+
+    protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+    throws ServletException, IOException {
+        StringBuffer requestURL = request.getRequestURL();
+        String[] requestUrlSplitted = requestURL.toString().split("/");
+        String controllerSearched = requestUrlSplitted[requestUrlSplitted.length-1];
+        
+        PrintWriter out = response.getWriter();
+        response.setContentType("text/html");
+
+        if (!urlMaping.containsKey(controllerSearched)) {
+            out.println("<p>"+"Aucune methode associee a ce chemin."+"</p>");
+        }
+        else {
+            Mapping mapping = urlMaping.get(controllerSearched);
+            
+            out.println("<p>" + requestURL.toString() + "</p>");
+            out.println("<p>" + mapping.getClassName() + "</p>");
+            out.println("<p>" + mapping.getMethodeName() + "</p>");
+
+            out.close();
+        }
+    }   
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -28,81 +59,48 @@ public class FrontServlet extends HttpServlet {
         processRequest(request, response);
     }
 
+
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         processRequest(request, response);
     }
 
-    private synchronized void processRequest(HttpServletRequest request, HttpServletResponse response)
-            throws IOException {
-        response.setContentType("text/html;charset=UTF-8");
-        try (PrintWriter out = response.getWriter()) {
-            out.println("<html>");
-            out.println("<head>");
-            out.println("<title>FrontController</title>");
-            out.println("</head>");
-            out.println("<body>");
-            out.println("<h1>URL actuelle :</h1>");
-            out.println("<p>" + request.getRequestURL() + "</p>");
-
-            if (!checked) {
-                ServletConfig config = getServletConfig();
-                scanControllers(config);
-                checked = true;
-            }
-
-            out.println("<h2>Liste des contrôleurs annotés avec @AnnotationController :</h2>");
-            for (String controller : listeControllers) {
-                out.println("<p>" + controller + "</p>");
-            }
-
-            out.println("</body>");
-            out.println("</html>");
-        }
-    }
-
-    private void scanControllers(ServletConfig config) {
-        String controllerPackage = config.getInitParameter("controller-package");
-        System.out.println("Scanning package: " + controllerPackage);
-
-        // Scanner les classes du package donné dans WEB-INF/classes
+    private void scanControllers(String packageName) {
         try {
-            String path = "WEB-INF/classes/" + controllerPackage.replace('.', '/');
-            File directory = new File(getServletContext().getRealPath(path));
-            if (directory.exists()) {
-                scanDirectory(directory, controllerPackage);
-            } else {
-                System.out.println("Directory does not exist: " + directory.getAbsolutePath());
-            }
+
+            // Charger le package et parcourir les classes
+            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+            String path = packageName.replace('.', '/');
+            URL resource = classLoader.getResource(path);
+            Path classPath = Paths.get(resource.toURI());
+            Files.walk(classPath)
+                    .filter(f -> f.toString().endsWith(".class"))
+                    .forEach(f -> {
+                        String className = packageName + "." + f.getFileName().toString().replace(".class", "");
+                        try {
+                            Class<?> clazz = Class.forName(className);
+                            if (clazz.isAnnotationPresent(AnnotationController.class)
+                                    && !Modifier.isAbstract(clazz.getModifiers())) {
+                                controllerNames.add(clazz.getSimpleName());
+                                Method[] methods= clazz.getMethods();
+
+                                for(Method m : methods){
+                                    if(m.isAnnotationPresent(AnnotationGetByURL.class)){
+                                        Mapping mapping =new Mapping(className , m.getName());
+                                        AnnotationGetByURL AnnotationGetByURL = m.getAnnotation(AnnotationGetByURL.class);
+                                        String annotationValue = AnnotationGet.value();
+                                        urlMaping.put(annotationValue, mapping);
+                                    }
+                                }
+                            }
+                        } catch (ClassNotFoundException e) {
+                            e.printStackTrace();
+                        }
+                    });
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void scanDirectory(File directory, String packageName) {
-        System.out.println("Scanning directory: " + directory.getAbsolutePath());
-
-        for (File file : directory.listFiles()) {
-            System.out.println("Processing file: " + file.getName());
-
-            if (file.isDirectory()) {
-                scanDirectory(file, packageName + "." + file.getName());
-            } else if (file.getName().endsWith(".class")) {
-                String className = packageName + '.' + file.getName().substring(0, file.getName().length() - 6);
-                try {
-                    Class<?> clazz = Class.forName(className);
-                    if (clazz.isAnnotationPresent(AnnotationController.class)
-                            && !verifiedClasses.contains(clazz.getName())) {
-                        AnnotationController annotation = clazz.getAnnotation(AnnotationController.class);
-                        listeControllers.add(clazz.getName() + " (" + annotation.value() + ")");
-                        verifiedClasses.add(clazz.getName());
-                        System.out.println("Added controller: " + clazz.getName());
-                    }
-                } catch (ClassNotFoundException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
 }
