@@ -45,10 +45,12 @@ public class FrontController extends HttpServlet {
         else {
             Mapping mapping = urlMaping.get(controllerSearched);
             
-            out.println("<p>" + requestURL.toString() + "</p>");
-            out.println("<p>" + mapping.getClassName() + "</p>");
-            out.println("<p>" + mapping.getMethodeName() + "</p>");
-
+            Class<?> clazz=Class.forName(mapping.getClassName());
+            Method method=clazz.getMethod(mapping.getMethodeName());
+            Object object=clazz.getDeclaredConstructor().newInstance();
+            Object returnValue=method.invoke(object);
+            String stringvalue=(String) returnValue;
+            out.println("la valeur de retour est "+ stringvalue);
             out.close();
         }
     }   
@@ -56,7 +58,12 @@ public class FrontController extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+                try {
+                    processRequest(request, response);
+                } catch (Exception e) {
+                    
+                }
+       
     }
 
 
