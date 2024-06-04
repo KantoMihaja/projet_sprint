@@ -1,4 +1,4 @@
-package mg.p16.spring;
+package mg.p16.Spring;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
