@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 package mg.p16.Spring.models;
-=======
-package mg.p16.models;
->>>>>>> 04e72c6320d032860e719890998da4f67bb60673
 
 import java.util.HashMap;
 
