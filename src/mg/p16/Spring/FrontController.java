@@ -20,17 +20,27 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+<<<<<<< HEAD
 import mg.p16.Spring.AnnotationGetByURL;
 import mg.p16.Spring.AnnotationController;
 import mg.p16.Spring.models.ModelView;
 import mg.p16.Spring.Mapping;
+=======
+import mg.p16.annotations.AnnotationGetByURL;
+import mg.p16.annotations.AnnotationControlleur;
+import mg.p16.models.ModelView;
+import mg.p16.utile.Mapping;
+>>>>>>> 04e72c6320d032860e719890998da4f67bb60673
 
 public class FrontController extends HttpServlet {
     private String packageName; // Variable pour stocker le nom du package
     private static List<String> controllerNames = new ArrayList<>();
     private HashMap<String, Mapping> urlMaping = new HashMap<>();
     String error = "";
+<<<<<<< HEAD
     
+=======
+>>>>>>> 04e72c6320d032860e719890998da4f67bb60673
 
     @Override
     public void init(ServletConfig config) throws ServletException {
@@ -119,7 +129,7 @@ public class FrontController extends HttpServlet {
                         String className = packageName + "." + f.getFileName().toString().replace(".class", "");
                         try {
                             Class<?> clazz = Class.forName(className);
-                            if (clazz.isAnnotationPresent(AnnotationController.class)
+                            if (clazz.isAnnotationPresent(AnnotationControlleur.class)
                                     && !Modifier.isAbstract(clazz.getModifiers())) {
                                 controllerNames.add(clazz.getSimpleName());
                                 Method[] methods = clazz.getMethods();
