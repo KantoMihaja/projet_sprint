@@ -30,7 +30,6 @@ public class FrontController extends HttpServlet {
     private static List<String> controllerNames = new ArrayList<>();
     private HashMap<String, Mapping> urlMaping = new HashMap<>();
     String error = "";
-    
 
     @Override
     public void init(ServletConfig config) throws ServletException {
