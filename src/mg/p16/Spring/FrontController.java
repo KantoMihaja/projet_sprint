@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
@@ -20,27 +21,18 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-<<<<<<< HEAD
-import mg.p16.Spring.AnnotationGetByURL;
-import mg.p16.Spring.AnnotationController;
-import mg.p16.Spring.models.ModelView;
-import mg.p16.Spring.Mapping;
-=======
 import mg.p16.annotations.AnnotationGetByURL;
-import mg.p16.annotations.AnnotationControlleur;
+import mg.p16.annotations.AnnotationPost;
+import mg.p16.annotations.AnnotationController;
+import mg.p16.annotations.Parametre;
 import mg.p16.models.ModelView;
 import mg.p16.utile.Mapping;
->>>>>>> 04e72c6320d032860e719890998da4f67bb60673
 
 public class FrontController extends HttpServlet {
     private String packageName; // Variable pour stocker le nom du package
     private static List<String> controllerNames = new ArrayList<>();
     private HashMap<String, Mapping> urlMaping = new HashMap<>();
     String error = "";
-<<<<<<< HEAD
-    
-=======
->>>>>>> 04e72c6320d032860e719890998da4f67bb60673
 
     @Override
     public void init(ServletConfig config) throws ServletException {
@@ -74,9 +66,29 @@ public class FrontController extends HttpServlet {
             try {
                 Mapping mapping = urlMaping.get(controllerSearched);
                 Class<?> clazz = Class.forName(mapping.getClassName());
-                Method method = clazz.getMethod(mapping.getMethodeName());
                 Object object = clazz.getDeclaredConstructor().newInstance();
-                Object returnValue = method.invoke(object);
+                Method method = null;
+
+                for (Method m : clazz.getDeclaredMethods()) {
+                    if (m.getName().equals(mapping.getMethodeName())) {
+                        if (request.getMethod().equalsIgnoreCase("GET") && m.isAnnotationPresent(AnnotationGetByURL.class)) {
+                            method = m;
+                            break;
+                        } else if (request.getMethod().equalsIgnoreCase("POST") && m.isAnnotationPresent(AnnotationPost.class)) {
+                            method = m;
+                            break;
+                        }
+                    }
+                }
+
+                if (method == null) {
+                    out.println("<p>Aucune méthode correspondante trouvée.</p>");
+                    return;
+                }
+
+                // Inject parameters
+                Object[] parameters = getMethodParameters(method, request);
+                Object returnValue = method.invoke(object, parameters);
                 if (returnValue instanceof String) {
                     out.println("Methode trouvee dans " + (String) returnValue);
                 } else if (returnValue instanceof ModelView) {
@@ -129,23 +141,28 @@ public class FrontController extends HttpServlet {
                         String className = packageName + "." + f.getFileName().toString().replace(".class", "");
                         try {
                             Class<?> clazz = Class.forName(className);
-                            if (clazz.isAnnotationPresent(AnnotationControlleur.class)
+                            if (clazz.isAnnotationPresent(AnnotationController.class)
                                     && !Modifier.isAbstract(clazz.getModifiers())) {
                                 controllerNames.add(clazz.getSimpleName());
                                 Method[] methods = clazz.getMethods();
 
-                                for (Method m : methods) {
-                                    if (m.isAnnotationPresent(AnnotationGetByURL.class)) {
-                                        Mapping mapping = new Mapping(className, m.getName());
-                                        AnnotationGetByURL annotation_Get = m.getAnnotation(AnnotationGetByURL.class);
-                                        String annotationValue = annotation_Get.value();
-
-                                        // Verification de duplication d'URL
-                                        if (urlMaping.containsKey(annotationValue)) {
-                                            throw new Exception("URL dupliquee detectee: " + annotationValue);
+                                for (Method methode : methods) {
+                                    if (methode.isAnnotationPresent(AnnotationGetByURL.class)) {
+                                        Mapping map = new Mapping(className, methode.getName());
+                                        String valeur = methode.getAnnotation(AnnotationGetByURL.class).value();
+                                        if (urlMaping.containsKey(valeur)) {
+                                            throw new Exception("double url" + valeur);
+                                        } else {
+                                            urlMaping.put(valeur, map);
                                         }
-
-                                        urlMaping.put(annotationValue, mapping);
+                                    } else if (methode.isAnnotationPresent(AnnotationPost.class)) {
+                                        Mapping map = new Mapping(className, methode.getName());
+                                        String valeur = methode.getAnnotation(AnnotationPost.class).value();
+                                        if (urlMaping.containsKey(valeur)) {
+                                            throw new Exception("double url" + valeur);
+                                        } else {
+                                            urlMaping.put(valeur, map);
+                                        }
                                     }
                                 }
                             }
@@ -156,5 +173,20 @@ public class FrontController extends HttpServlet {
         } catch (Exception e) {
             throw e;
         }
+    }
+
+    private Object[] getMethodParameters(Method method, HttpServletRequest request) {
+        Parameter[] parameters = method.getParameters();
+        Object[] parameterValues = new Object[parameters.length];
+
+        for (int i = 0; i < parameters.length; i++) {
+            if (parameters[i].isAnnotationPresent(Parametre.class)) {
+                Parametre param = parameters[i].getAnnotation(Parametre.class);
+                String paramValue = request.getParameter(param.value());
+                parameterValues[i] = paramValue; // Assuming all parameters are strings for simplicity
+            }
+        }
+
+        return parameterValues;
     }
 }
