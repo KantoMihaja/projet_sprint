@@ -237,4 +237,18 @@ public static Object convertParameter(String value, Class<?> type) {
         return parameterValues;
     }
 
+    private Object[] getMethodParameters(Method method, HttpServletRequest request) {
+        Parameter[] parameters = method.getParameters();
+        Object[] parameterValues = new Object[parameters.length];
+
+        for (int i = 0; i < parameters.length; i++) {
+            if (parameters[i].isAnnotationPresent(Parametre.class)) {
+                Parametre param = parameters[i].getAnnotation(Parametre.class);
+                String paramValue = request.getParameter(param.value());
+                parameterValues[i] = paramValue; // Assuming all parameters are strings for simplicity
+            }
+        }
+
+        return parameterValues;
+    }
 }
