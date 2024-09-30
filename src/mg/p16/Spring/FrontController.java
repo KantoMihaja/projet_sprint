@@ -16,6 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.gson.Gson;
+
 import jakarta.servlet.http.HttpSession;
 
 import jakarta.servlet.ServletConfig;
@@ -32,6 +34,7 @@ import mg.p16.annotations.AnnotationController;
 import mg.p16.annotations.Parametre;
 import mg.p16.annotations.ParametreField;
 import mg.p16.annotations.RequestParam;
+import mg.p16.annotations.RestApi;
 import mg.p16.models.CustomSession;
 import mg.p16.models.ModelView;
 import mg.p16.utile.Mapping;
@@ -97,7 +100,21 @@ public class FrontController extends HttpServlet {
                 // Inject parameters
                 Object[] parameters = getMethodParameters(method, request);
                 Object returnValue = method.invoke(object, parameters);
-                if (returnValue instanceof String) {
+                if (method.isAnnotationPresent(RestApi.class)) {
+                    response.setContentType("application/json");
+                    Gson gson = new Gson();
+                    String jsonResponse;
+                    if (returnValue instanceof String) {
+                        jsonResponse = gson.toJson(returnValue);
+                        out.println(jsonResponse);
+                    } else if (returnValue instanceof ModelView) {
+                        ModelView modelView = (ModelView) returnValue;
+                        jsonResponse = gson.toJson(modelView.getData());
+                        out.println(jsonResponse);
+                    } else {
+                        out.println("Type de donnees non reconnu");
+                    }
+                }else if (returnValue instanceof String) {
                     out.println("Methode trouvee dans " + (String) returnValue);
                 } else if (returnValue instanceof ModelView) {
                     ModelView modelView = (ModelView) returnValue;
@@ -222,7 +239,7 @@ public static Object convertParameter(String value, Class<?> type) {
                     ParametreField param = field.getAnnotation(ParametreField.class);
                     String fieldName = field.getName();  // Récupère le nom du champ
                     if (param == null) {
-                        throw new Exception("Etu002635 ,l'attribut " + fieldName +" dans le classe "+parameterObject.getClass().getSimpleName()+" n'a pas d'annotation ParamField "); 
+                        throw new Exception("Etu002418 ,l'attribut " + fieldName +" dans le classe "+parameterObject.getClass().getSimpleName()+" n'a pas d'annotation ParamField "); 
                     }  
                     String paramName = param.value();
                     String paramValue = request.getParameter(paramName);  // Récupère la valeur du paramètre de la requête
