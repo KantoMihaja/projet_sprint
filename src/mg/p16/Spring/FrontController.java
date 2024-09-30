@@ -16,6 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.servlet.http.HttpSession;
+
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
@@ -24,10 +26,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import mg.p16.annotations.AnnotationGetByURL;
 import mg.p16.annotations.AnnotationPost;
+import mg.p16.annotations.InjectSession;
 import mg.p16.annotations.ParamObject;
 import mg.p16.annotations.AnnotationController;
 import mg.p16.annotations.Parametre;
+import mg.p16.annotations.ParametreField;
 import mg.p16.annotations.RequestParam;
+import mg.p16.models.CustomSession;
 import mg.p16.models.ModelView;
 import mg.p16.utile.Mapping;
 
@@ -194,11 +199,14 @@ public static Object convertParameter(String value, Class<?> type) {
         return null;
     }
 
+    
+
     private Object[] getMethodParameters(Method method, HttpServletRequest request)throws Exception {
         Parameter[] parameters = method.getParameters();
         Object[] parameterValues = new Object[parameters.length];
 
         for (int i = 0; i < parameters.length; i++) {
+            
             if (parameters[i].isAnnotationPresent(Parametre.class)) {
                 Parametre param = parameters[i].getAnnotation(Parametre.class);
                 String paramValue = request.getParameter(param.value());
@@ -211,10 +219,12 @@ public static Object convertParameter(String value, Class<?> type) {
     
                 // Parcourt tous les champs (fields) de l'objet
                 for (Field field : parameterType.getDeclaredFields()) {
-                    RequestParam param = field.getAnnotation(RequestParam.class);
-
+                    ParametreField param = field.getAnnotation(ParametreField.class);
                     String fieldName = field.getName();  // Récupère le nom du champ
-                    String paramName = (param!=null)?param.value(): fieldName;  // Forme le nom du paramètre de la requête attendu
+                    if (param == null) {
+                        throw new Exception("Etu002635 ,l'attribut " + fieldName +" dans le classe "+parameterObject.getClass().getSimpleName()+" n'a pas d'annotation ParamField "); 
+                    }  
+                    String paramName = param.value();
                     String paramValue = request.getParameter(paramName);  // Récupère la valeur du paramètre de la requête
 
                     // Vérifie si la valeur du paramètre n'est pas null (si elle est trouvée dans la requête)
@@ -228,6 +238,8 @@ public static Object convertParameter(String value, Class<?> type) {
                     }
                 }
                 parameterValues[i] = parameterObject;  // Stocke l'objet créé dans le tableau des arguments
+            }else if (parameters[i].isAnnotationPresent(InjectSession.class)) {
+                parameterValues[i] = new CustomSession(request.getSession());
             }
             else{
 
@@ -236,19 +248,15 @@ public static Object convertParameter(String value, Class<?> type) {
 
         return parameterValues;
     }
-
-    private Object[] getMethodParameters(Method method, HttpServletRequest request) {
-        Parameter[] parameters = method.getParameters();
-        Object[] parameterValues = new Object[parameters.length];
-
-        for (int i = 0; i < parameters.length; i++) {
-            if (parameters[i].isAnnotationPresent(Parametre.class)) {
-                Parametre param = parameters[i].getAnnotation(Parametre.class);
-                String paramValue = request.getParameter(param.value());
-                parameterValues[i] = paramValue; // Assuming all parameters are strings for simplicity
+    private void injectSessionIfNeeded(Object controllerInstance, HttpSession session) throws IllegalAccessException {
+        Field[] fields = controllerInstance.getClass().getDeclaredFields();
+        for (Field field : fields) {
+            if (field.isAnnotationPresent(InjectSession.class)) {
+                boolean accessible = field.isAccessible();
+                field.setAccessible(true);
+                field.set(controllerInstance, new CustomSession(session));
+                field.setAccessible(accessible);
             }
         }
-
-        return parameterValues;
     }
 }
