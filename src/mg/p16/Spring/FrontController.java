@@ -239,7 +239,6 @@ public static Object convertParameter(String value, Class<?> type) {
                     ParametreField param = field.getAnnotation(ParametreField.class);
                     String fieldName = field.getName();  // Récupère le nom du champ
                     if (param == null) {
-                        throw new Exception("Etu002635 ,l'attribut " + fieldName +" dans le classe "+parameterObject.getClass().getSimpleName()+" n'a pas d'annotation ParamField "); 
                     }  
                     String paramName = param.value();
                     String paramValue = request.getParameter(paramName);  // Récupère la valeur du paramètre de la requête
