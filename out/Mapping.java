@@ -1,15 +1,14 @@
-package mg.p16.Spring;
+package mg.p16.utile;
 
 public class Mapping {
     String className;
     String methodeName;
 
-
     public Mapping(String className, String methodeName) {
         this.className = className;
         this.methodeName = methodeName;
     }
-    
+
     public String getClassName() {
         return className;
     }
