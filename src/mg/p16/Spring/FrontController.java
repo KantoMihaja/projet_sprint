@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import com.google.gson.*;
 
+import com.google.gson.Gson;
+
 import jakarta.servlet.http.HttpSession;
 
 import jakarta.servlet.ServletConfig;
@@ -100,7 +102,6 @@ if (!error.isEmpty()) {
             }
             
         }
-
         if (method == null) {
             out.println("Aucune méthode correspondante trouvée");
         }
@@ -266,7 +267,7 @@ public static Object convertParameter(String value, Class<?> type) {
                     ParametreField param = field.getAnnotation(ParametreField.class);
                     String fieldName = field.getName();  // Récupère le nom du champ
                     if (param == null) {
-                        throw new Exception("Etu002635 ,l'attribut " + fieldName +" dans le classe "+parameterObject.getClass().getSimpleName()+" n'a pas d'annotation ParamField "); 
+                        throw new Exception("Etu002418 ,l'attribut " + fieldName +" dans le classe "+parameterObject.getClass().getSimpleName()+" n'a pas d'annotation ParamField "); 
                     }  
                     String paramName = param.value();
                     String paramValue = request.getParameter(paramName);  // Récupère la valeur du paramètre de la requête
