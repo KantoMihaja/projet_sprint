@@ -71,19 +71,12 @@ String[] requestUrlSplitted = requestURL.toString().split("/");
 String controllerSearched = requestUrlSplitted[requestUrlSplitted.length - 1];
 
 PrintWriter out = response.getWriter();
-int errorCode = 0; // Code d'erreur par défaut (aucune erreur)
-String errorMessage = "Une erreur inattendue est survenue.";
-String errorDetails = null;
 
 response.setContentType("text/html");
 if (!error.isEmpty()) {
-    errorCode = 400;
-    errorMessage = "Erreur de demande";
-    errorDetails = error;
+    out.println(error);
 } else if (!urlMaping.containsKey(controllerSearched)) {
-    errorCode = 404;
-    errorMessage = "Non trouvé";
-    errorDetails = "Aucune méthode associée au chemin spécifié.";
+    out.println("Aucune méthode associée au chemin spécifié.");
 } else {
     try {
         Mapping mapping = urlMaping.get(controllerSearched);
@@ -92,9 +85,7 @@ if (!error.isEmpty()) {
         Method method = null;
         
         if (!mapping.isVerbPresent(request.getMethod())) {
-            errorCode = 405;
-            errorMessage = "Méthode non autorisée";
-            errorDetails = "Le verbe HTTP utilisé n'est pas pris en charge pour cette action.";
+            out.println("Le verbe HTTP utilisé n'est pas pris en charge pour cette action.");
         }
 
         for (Method m : clazz.getDeclaredMethods()) {
@@ -111,9 +102,7 @@ if (!error.isEmpty()) {
         }
 
         if (method == null) {
-            errorCode = 404;
-            errorMessage = "Non trouvé";
-            errorDetails = "Aucune méthode correspondante trouvée.";
+            out.println("Aucune méthode correspondante trouvée");
         }
 
         // Inject parameters
@@ -130,9 +119,7 @@ if (!error.isEmpty()) {
                 String jsonResponse = gson.toJson(modelView.getData());
                 out.println(jsonResponse);
             } else {
-                errorCode = 500;
-                errorMessage = "Erreur interne du serveur";
-                errorDetails = "Type de données non reconnu.";
+                out.println("Type de données non reconnu.");
             }
         }else{
             if (returnValue instanceof String) {
@@ -145,29 +132,11 @@ if (!error.isEmpty()) {
                 RequestDispatcher dispatcher = request.getRequestDispatcher(modelView.getUrl());
                 dispatcher.forward(request, response);
             } else {
-                errorCode = 500;
-                errorMessage = "Erreur interne du serveur";
-                errorDetails = "Type de données non reconnu.";
+                out.println("Type de données non reconnu.");
             }
         }
     } catch (Exception e) {
-        errorCode = 500;
-        errorMessage = "Erreur interne du serveur";
-        errorDetails = e.getMessage();
-    }finally {
-        if (errorCode != 0) {
-            out.print("ato oooo");
-            // out.close(); // Fermer le PrintWriter
-            // request.setAttribute("errorCode", errorCode);
-            // request.setAttribute("errorMessage", errorMessage);
-            // request.setAttribute("errorDetails", errorDetails);
-            // RequestDispatcher dispatchers = request.getRequestDispatcher("/error.jsp");
-            // try {
-            //     dispatchers.forward(request, response);
-            // } catch (Exception e) {
-            //     e.printStackTrace(); // Log de l'erreur si le forward échoue
-            // }
-        }
+        out.println(e.getMessage());
     }
     
 }
