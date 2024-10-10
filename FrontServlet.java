@@ -67,11 +67,20 @@ public class FrontServlet extends HttpServlet {
         String controllerSearched = requestUrlSplitted[requestUrlSplitted.length - 1];
 
         PrintWriter out = response.getWriter();
+        int errorCode = 0; // Code d'erreur par défaut (aucune erreur)
+        String errorMessage = "Une erreur inattendue est survenue.";
+        String errorDetails = null;
+
+        
         response.setContentType("text/html");
         if (!error.isEmpty()) {
-            out.println(error);
+            errorCode = 400;
+            errorMessage = "Erreur de demande";
+            errorDetails = error;
         } else if (!urlMaping.containsKey(controllerSearched)) {
-            out.println("<p>Aucune methode associee à ce chemin.</p>");
+            errorCode = 404;
+            errorMessage = "Non trouvé";
+            errorDetails = "Aucune méthode associée au chemin spécifié.";
         } else {
             try {
                 Mapping mapping = urlMaping.get(controllerSearched);
@@ -79,61 +88,92 @@ public class FrontServlet extends HttpServlet {
                 Object object = clazz.getDeclaredConstructor().newInstance();
                 Method method = null;
 
+                       
+                if (!mapping.isVerbPresent(request.getMethod())) {
+                    errorCode = 405;
+                    errorMessage = "Méthode non autorisée";
+                    errorDetails = "Le verbe HTTP utilisé n'est pas pris en charge pour cette action.";
+                }
+
+
+            
                 for (Method m : clazz.getDeclaredMethods()) {
-                    if (m.getName().equals(mapping.getMethodeName())) {
-                        if (request.getMethod().equalsIgnoreCase("GET") && m.isAnnotationPresent(Annotation_Get.class)) {
+                    for (VerbAction action : mapping.getVerbActions()) {
+                        if (m.getName().equals(action.getMethodeName()) && action.getVerb().equalsIgnoreCase(request.getMethod())) {
                             method = m;
-                            break;
-                        } else if (request.getMethod().equalsIgnoreCase("POST") && m.isAnnotationPresent(Annotation_Post.class)) {
-                            method = m;
-                            break;
+                            break; 
                         }
                     }
+                    if (method != null) {
+                        break;
+                    }
+                    
                 }
+
 
                 if (method == null) {
-                    out.println("<p>Aucune méthode correspondante trouvée.</p>");
-                    return;
+                    errorCode = 404;
+                    errorMessage = "Non trouvé";
+                    errorDetails = "Aucune méthode correspondante trouvée.";
                 }
 
-                // Inject parameters
-                Object[] parameters = getMethodParameters(method, request);
-                Object returnValue = method.invoke(object, parameters);
-                if (method.isAnnotationPresent(RestApi.class)) {
-                    response.setContentType("application/json");
-                    Gson gson = new Gson();
-                    String jsonResponse;
-                    if (returnValue instanceof String) {
-                        jsonResponse = gson.toJson(returnValue);
-                        out.println(jsonResponse);
-                    } else if (returnValue instanceof ModelView) {
-                        ModelView modelView = (ModelView) returnValue;
-                        jsonResponse = gson.toJson(modelView.getData());
-                        out.println(jsonResponse);
-                    } else {
-                        out.println("Type de donnees non reconnu");
-                    }
-                }else{
-                    if (returnValue instanceof String) {
-                        out.println("Methode trouvee dans " + (String) returnValue);
-                    } else if (returnValue instanceof ModelView) {
-                        ModelView modelView = (ModelView) returnValue;
-                        for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
-                            request.setAttribute(entry.getKey(), entry.getValue());
-                        }
-                        RequestDispatcher dispatcher = request.getRequestDispatcher(modelView.getUrl());
-                        dispatcher.forward(request, response);
-                    } else {
-                        out.println("Type de donnees non reconnu");
-                    }
-                }
-            } catch (Exception e) {
-                out.println(e.getMessage());
-            } finally {
-                out.close();
-            }
-        }
+ // Inject parameters
+ Object[] parameters = getMethodParameters(method, request);
+ Object returnValue = method.invoke(object, parameters);
+ if (method.isAnnotationPresent(RestApi.class)) {
+     response.setContentType("application/json");
+     Gson gson = new Gson();
+     if (returnValue instanceof String) {
+         String jsonResponse = gson.toJson(returnValue);
+         out.println(jsonResponse);
+     } else if (returnValue instanceof ModelView) {
+         ModelView modelView = (ModelView) returnValue;
+         String jsonResponse = gson.toJson(modelView.getData());
+         out.println(jsonResponse);
+     } else {
+         errorCode = 500;
+         errorMessage = "Erreur interne du serveur";
+         errorDetails = "Type de données non reconnu.";
+     }
+ }else{
+     if (returnValue instanceof String) {
+         out.println("Methode trouvee dans " + (String) returnValue);
+     } else if (returnValue instanceof ModelView) {
+         ModelView modelView = (ModelView) returnValue;
+         for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
+             request.setAttribute(entry.getKey(), entry.getValue());
+         }
+         RequestDispatcher dispatcher = request.getRequestDispatcher(modelView.getUrl());
+         dispatcher.forward(request, response);
+     } else {
+         errorCode = 500;
+         errorMessage = "Erreur interne du serveur";
+         errorDetails = "Type de données non reconnu.";
+     }
+ }
+} catch (Exception e) {
+    errorCode = 500;
+    errorMessage = "Erreur interne du serveur";
+    errorDetails = e.getMessage();
+}finally {
+    if (errorCode != 0) {
+        out.print("ato oooo");
+        // out.close(); // Fermer le PrintWriter
+        // request.setAttribute("errorCode", errorCode);
+        // request.setAttribute("errorMessage", errorMessage);
+        // request.setAttribute("errorDetails", errorDetails);
+        // RequestDispatcher dispatchers = request.getRequestDispatcher("/error.jsp");
+        // try {
+        //     dispatchers.forward(request, response);
+        // } catch (Exception e) {
+        //     e.printStackTrace(); // Log de l'erreur si le forward échoue
+        // }
     }
+}
+
+}
+}
+
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -180,26 +220,36 @@ public class FrontServlet extends HttpServlet {
                                     && !Modifier.isAbstract(clazz.getModifiers())) {
                                 controllerNames.add(clazz.getSimpleName());
                                 Method[] methods = clazz.getMethods();
-
-                                for (Method methode : methods) {
-                                    if (methode.isAnnotationPresent(Annotation_Get.class)) {
-                                        Mapping map = new Mapping(className, methode.getName());
-                                        String valeur = methode.getAnnotation(Annotation_Get.class).value();
-                                        if (urlMaping.containsKey(valeur)) {
-                                            throw new Exception("double url" + valeur);
-                                        } else {
-                                            urlMaping.put(valeur, map);
+                                for (Method method : methods) {
+                                    if (method.isAnnotationPresent(Url.class)) {
+                                        Url urlAnnotation = method.getAnnotation(Url.class);
+                                        String url = urlAnnotation.value();
+                                        String verb = "GET"; 
+                                        if (method.isAnnotationPresent(Annotation_Get.class)) {
+                                            verb = "GET";
+                                        } else if (method.isAnnotationPresent(Annotation_Post.class)) {
+                                            verb = "POST";
                                         }
-                                    } else if (methode.isAnnotationPresent(Annotation_Post.class)) {
-                                        Mapping map = new Mapping(className, methode.getName());
-                                        String valeur = methode.getAnnotation(Annotation_Post.class).value();
-                                        if (urlMaping.containsKey(valeur)) {
-                                            throw new Exception("double url" + valeur);
+                                        VerbAction verbAction = new VerbAction(method.getName(), verb);
+                                        Mapping map = new Mapping(className);
+                                        if (urlMaping.containsKey(url)) {
+                                            Mapping existingMap = urlMaping.get(url);
+                                            if (existingMap.getVerbActions().contains(verbAction)) {
+                                                throw new Exception("Duplicate URL: " + url);
+                                            } else {
+                                                existingMap.setVerbActions(verbAction);
+                                            }
                                         } else {
-                                            urlMaping.put(valeur, map);
+                                            map.setVerbActions(verbAction);
+                                            urlMaping.put(url, map);
                                         }
+                                        
+                                    }else{
+                                        throw new Exception("il faut avoir une annotation url dans le controlleur  "+ className);
                                     }
                                 }
+                                
+                                
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -209,7 +259,6 @@ public class FrontServlet extends HttpServlet {
             throw e;
         }
     }
-
   public static Object convertParameter(String value, Class<?> type) {
         if (value == null) {
             return null;

@@ -17,8 +17,6 @@ import java.util.List;
 import java.util.Map;
 import com.google.gson.*;
 
-import com.google.gson.Gson;
-
 import jakarta.servlet.http.HttpSession;
 
 import jakarta.servlet.ServletConfig;
@@ -73,12 +71,19 @@ String[] requestUrlSplitted = requestURL.toString().split("/");
 String controllerSearched = requestUrlSplitted[requestUrlSplitted.length - 1];
 
 PrintWriter out = response.getWriter();
+int errorCode = 0; // Code d'erreur par défaut (aucune erreur)
+String errorMessage = "Une erreur inattendue est survenue.";
+String errorDetails = null;
 
 response.setContentType("text/html");
 if (!error.isEmpty()) {
-    out.println(error);
+    errorCode = 400;
+    errorMessage = "Erreur de demande";
+    errorDetails = error;
 } else if (!urlMaping.containsKey(controllerSearched)) {
-    out.println("Aucune méthode associée au chemin spécifié.");
+    errorCode = 404;
+    errorMessage = "Non trouvé";
+    errorDetails = "Aucune méthode associée au chemin spécifié.";
 } else {
     try {
         Mapping mapping = urlMaping.get(controllerSearched);
@@ -87,7 +92,9 @@ if (!error.isEmpty()) {
         Method method = null;
         
         if (!mapping.isVerbPresent(request.getMethod())) {
-            out.println("Le verbe HTTP utilisé n'est pas pris en charge pour cette action.");
+            errorCode = 405;
+            errorMessage = "Méthode non autorisée";
+            errorDetails = "Le verbe HTTP utilisé n'est pas pris en charge pour cette action.";
         }
 
         for (Method m : clazz.getDeclaredMethods()) {
@@ -102,8 +109,11 @@ if (!error.isEmpty()) {
             }
             
         }
+
         if (method == null) {
-            out.println("Aucune méthode correspondante trouvée");
+            errorCode = 404;
+            errorMessage = "Non trouvé";
+            errorDetails = "Aucune méthode correspondante trouvée.";
         }
 
         // Inject parameters
@@ -120,7 +130,9 @@ if (!error.isEmpty()) {
                 String jsonResponse = gson.toJson(modelView.getData());
                 out.println(jsonResponse);
             } else {
-                out.println("Type de données non reconnu.");
+                errorCode = 500;
+                errorMessage = "Erreur interne du serveur";
+                errorDetails = "Type de données non reconnu.";
             }
         }else{
             if (returnValue instanceof String) {
@@ -133,11 +145,29 @@ if (!error.isEmpty()) {
                 RequestDispatcher dispatcher = request.getRequestDispatcher(modelView.getUrl());
                 dispatcher.forward(request, response);
             } else {
-                out.println("Type de données non reconnu.");
+                errorCode = 500;
+                errorMessage = "Erreur interne du serveur";
+                errorDetails = "Type de données non reconnu.";
             }
         }
     } catch (Exception e) {
-        out.println(e.getMessage());
+        errorCode = 500;
+        errorMessage = "Erreur interne du serveur";
+        errorDetails = e.getMessage();
+    }finally {
+        if (errorCode != 0) {
+            out.print("ato oooo");
+            // out.close(); // Fermer le PrintWriter
+            // request.setAttribute("errorCode", errorCode);
+            // request.setAttribute("errorMessage", errorMessage);
+            // request.setAttribute("errorDetails", errorDetails);
+            // RequestDispatcher dispatchers = request.getRequestDispatcher("/error.jsp");
+            // try {
+            //     dispatchers.forward(request, response);
+            // } catch (Exception e) {
+            //     e.printStackTrace(); // Log de l'erreur si le forward échoue
+            // }
+        }
     }
     
 }
@@ -267,7 +297,7 @@ public static Object convertParameter(String value, Class<?> type) {
                     ParametreField param = field.getAnnotation(ParametreField.class);
                     String fieldName = field.getName();  // Récupère le nom du champ
                     if (param == null) {
-                        throw new Exception("Etu002418 ,l'attribut " + fieldName +" dans le classe "+parameterObject.getClass().getSimpleName()+" n'a pas d'annotation ParamField "); 
+                        throw new Exception("Etu002635 ,l'attribut " + fieldName +" dans le classe "+parameterObject.getClass().getSimpleName()+" n'a pas d'annotation ParamField "); 
                     }  
                     String paramName = param.value();
                     String paramValue = request.getParameter(paramName);  // Récupère la valeur du paramètre de la requête
